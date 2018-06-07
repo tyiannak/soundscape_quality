@@ -9,6 +9,7 @@ from os import listdir
 from os.path import isfile, join
 from sklearn.model_selection import ShuffleSplit
 import sklearn.metrics
+import scipy.stats
 
 def read_ground_truth(gt_file_path):
     gt = {}
@@ -26,7 +27,13 @@ def read_features(features_folder):
     features_dict = {}
     for f in files:
         features = np.load(f)
-        feature_stats = np.concatenate((features.mean(axis = 1), features.std(axis = 1)))
+        feature_stats = np.concatenate((features.mean(axis = 1), 
+            features.std(axis = 1),
+            np.percentile(features, q = 10, axis = 1),
+            np.percentile(features, q = 25, axis = 1),
+            np.percentile(features, q = 75, axis = 1),
+            np.percentile(features, q = 90, axis = 1)
+            ))
         features_dict[os.path.basename(f).replace("features.npy","")] = feature_stats
     return features_dict
 
@@ -42,18 +49,23 @@ def split_data(ground_truth, feature_dict):
     x = np.array(x)
     y = np.array(y)
 
-    rs = ShuffleSplit(n_splits=10, test_size=.15)
-    err = []
+    #rs = ShuffleSplit(n_splits=2, test_size=.05)
+    rs = sklearn.model_selection.KFold(3)
+    c_params = [0.1, 1, 2, 4, 5]
+    err = [[] for c in c_params]
+    err_m = []
     for train_index, test_index in rs.split(x):
         x_train = x[train_index, :]
         y_train = y[train_index]
         x_test = x[test_index, :]
         y_test = y[test_index]
-        svm, m, s = train_model_and_scaler(x_train, y_train, c_param = 10)
-
-        y_pred = svm.predict(normalize_ms(x_test, m, s))
-        err.append(sklearn.metrics.mean_squared_error(y_test, y_pred))
-    print np.array(err).mean(), np.array(err).std()
+        for ic, c in enumerate(c_params):
+            svm, m, s = train_model_and_scaler(x_train, y_train, c_param = c)
+            y_pred = svm.predict(normalize_ms(x_test, m, s))
+            err[ic].append(sklearn.metrics.mean_squared_error(y_test, y_pred))
+            err_m.append(sklearn.metrics.mean_squared_error(y_test, np.full(y_test.shape, y_train.mean())))
+    for ie, e in enumerate(err):
+        print c_params[ie], np.array(e).mean(), np.array(e).std(), np.mean(err_m)
 
 
 
@@ -65,7 +77,7 @@ def train_model_and_scaler(feature_matrix, targets, c_param = 1):
 
     s_mean, s_std = feature_matrix.mean(axis = 0), feature_matrix.std(axis=0)
 
-    model = svm.SVC(C=c_param, kernel='rbf')
+    model = svm.SVR(C=c_param, kernel='rbf')
 
     feature_matrix_norm = normalize_ms(feature_matrix, s_mean, s_std)
     model.fit(feature_matrix_norm, targets)
