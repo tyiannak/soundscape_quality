@@ -28,6 +28,13 @@ def read_features(features_folder):
     features_dict = {}
     for f in files:
         features = np.load(f)
+
+        # compute detla features
+        features_delta = np.zeros(features.shape)
+        features_delta[:, 1:] = features[:, 1:] - features[:, 0:-1]
+        features = np.concatenate((features, features_delta), axis = 0)
+
+        # compute feature statistics
         feature_stats = np.concatenate((
                 features.mean(axis = 1), 
                 features.std(axis = 1),
@@ -49,7 +56,7 @@ def split_data(ground_truth, feature_dict):
     x, y = np.array(x), np.array(y)
 
     rs = KFold(3)
-    c_params = [0.1, 1, 2, 4, 5]
+    c_params = [0.1, 1, 2, 4, 5, 6, 7, 8, 9, 10, 20]
     err = [[] for c in c_params]
     err_m = []
     for train_index, test_index in rs.split(x):
