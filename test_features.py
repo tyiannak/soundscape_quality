@@ -7,9 +7,10 @@ from sklearn import svm
 import csv
 from os import listdir
 from os.path import isfile, join
-from sklearn.model_selection import ShuffleSplit
-import sklearn.metrics
+from sklearn.model_selection import KFold
+from sklearn.metrics import mean_squared_error as mse
 import scipy.stats
+
 
 def read_ground_truth(gt_file_path):
     gt = {}
@@ -27,30 +28,27 @@ def read_features(features_folder):
     features_dict = {}
     for f in files:
         features = np.load(f)
-        feature_stats = np.concatenate((features.mean(axis = 1), 
-            features.std(axis = 1),
-            np.percentile(features, q = 10, axis = 1),
-            np.percentile(features, q = 25, axis = 1),
-            np.percentile(features, q = 75, axis = 1),
-            np.percentile(features, q = 90, axis = 1)
+        feature_stats = np.concatenate((
+                features.mean(axis = 1), 
+                features.std(axis = 1),
+                np.percentile(features, q = 10, axis = 1),
+                np.percentile(features, q = 25, axis = 1),
+                np.percentile(features, q = 75, axis = 1),
+                np.percentile(features, q = 90, axis = 1)
             ))
         features_dict[os.path.basename(f).replace("features.npy","")] = feature_stats
     return features_dict
 
 
 def split_data(ground_truth, feature_dict):
-    x = []
-    y = []
+    x, y = [], []
     for g in ground_truth:
         if g in feature_dict:
             y.append(ground_truth[g])
             x.append(feature_dict[g])
+    x, y = np.array(x), np.array(y)
 
-    x = np.array(x)
-    y = np.array(y)
-
-    #rs = ShuffleSplit(n_splits=2, test_size=.05)
-    rs = sklearn.model_selection.KFold(3)
+    rs = KFold(3)
     c_params = [0.1, 1, 2, 4, 5]
     err = [[] for c in c_params]
     err_m = []
@@ -62,11 +60,14 @@ def split_data(ground_truth, feature_dict):
         for ic, c in enumerate(c_params):
             svm, m, s = train_model_and_scaler(x_train, y_train, c_param = c)
             y_pred = svm.predict(normalize_ms(x_test, m, s))
-            err[ic].append(sklearn.metrics.mean_squared_error(y_test, y_pred))
-            err_m.append(sklearn.metrics.mean_squared_error(y_test, np.full(y_test.shape, y_train.mean())))
+            err[ic].append(mse(y_test, y_pred))
+            err_m.append(mse(y_test, np.full(y_test.shape, y_train.mean())))
     for ie, e in enumerate(err):
-        print c_params[ie], np.array(e).mean(), np.array(e).std(), np.mean(err_m)
-
+        print("{:.3f}\t{:.3f}\t{:.3f}\t{:.3f}".format(
+                                                      c_params[ie], 
+                                                      np.array(e).mean(), 
+                                                      np.array(e).std(), 
+                                                      np.mean(err_m)))
 
 
 def normalize_ms(fm, m, v):
