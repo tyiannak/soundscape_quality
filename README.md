@@ -1,7 +1,7 @@
 # soundscape_quality
 Data handling and baseline approach for soundscape quality estimation
 
-Please refer to the paper [here] (https://arxiv.org/submit/2342976/view)
+Please refer to the paper [here](https://arxiv.org/submit/2342976/view)
 
 ## Download dataset:
 ```
