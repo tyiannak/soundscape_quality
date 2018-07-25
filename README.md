@@ -16,7 +16,20 @@ wget http://users.iit.demokritos.gr/~tyianak/soundscape_quality_dataset/spectrog
 unzip spectrograms.zip -d .
 ```
 
-## Run regression test on audio feature statistics
+## Run regression test on audio feature statistics (examples)
 ```
-python test_features.py -i features
+python test_features.py -i features -g soundscape.csv -m audio -c all
+python test_features.py -i features -g soundscape.csv -m audio -c all --upsample
+python test_features.py -i features -g soundscape.csv -m audio -c all --regression
+python test_features.py -i features -g soundscape.csv -m audio -c all --regression --upsample
+
+python test_features.py -i features -g soundscape.csv -m audio -c 3
+python test_features.py -i features -g soundscape.csv -m audio -c 3 --upsample
+python test_features.py -i features -g soundscape.csv -m audio -c 3 --regression
+python test_features.py -i features -g soundscape.csv -m audio -c 3 --regression --upsample
+
+python test_features.py -i features -g soundscape.csv -m audio -c 3_only_extremes 
+python test_features.py -i features -g soundscape.csv -m audio -c 3_only_extremes --upsample
+python test_features.py -i features -g soundscape.csv -m audio -c 3_only_extremes --regression
+python test_features.py -i features -g soundscape.csv -m audio -c 3_only_extremes --regression --upsample
 ```
