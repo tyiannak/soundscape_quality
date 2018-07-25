@@ -121,7 +121,7 @@ def read_audio_features(features_folder):
     return features_dict
 
 
-def evaluate(ground_truth, feature_dict):
+def evaluate(ground_truth, feature_dict, do_upsample, do_regression):
     '''
     Evaluate a regression method for a set of features as extracted by either
     read_audio_features() or read_geospatial_features()
@@ -158,7 +158,10 @@ def evaluate(ground_truth, feature_dict):
         x_test = np.concatenate([x_folds[t] for t in test_index])
         y_test = np.concatenate([y_folds[t] for t in test_index])
         for ic, c in enumerate(c_params):
-            svm, m, s = train_model_and_scaler(x_train, y_train, c_param = c)
+            svm, m, s = train_model_and_scaler(x_train, y_train,
+                                               oversampling = do_upsample,
+                                               regression = do_regression,
+                                               c_param = c)
             y_pred = svm.predict(normalize_ms(x_test, m, s))
             y_pred_rounded = np.round(y_pred)
             y_pred_rounded[y_pred_rounded < 1] = 1
@@ -172,10 +175,10 @@ def evaluate(ground_truth, feature_dict):
     for ie, e in enumerate(err):
         mae.append(np.array(e).mean())
         mae_std.append(np.array(e).std())
-        print("{:.3f}\t{:.3f}\t{:.3f}".format(c_params[ie], mae[-1],
+        print("{:.2f}\t{:.2f}\t{:.2f}".format(c_params[ie], mae[-1],
                                               mae_std[-1]))
     i_min = np.argmin(mae)
-    print("Best performance: {:.3f} (+-{:.3f}) for C = {:.3f}".format(
+    print("Best performance: {:.2f} (+-{:.2f}) for C = {:.2f}".format(
         mae[i_min], mae_std[i_min], c_params[i_min]))
     print("Confusion matrix:")
     print cms[i_min].astype(int)
@@ -204,13 +207,18 @@ def compute_F1_Acc(CM):
     return np.mean(F1), np.diag(CM).sum() / CM.sum()
 
 
-def train_model_and_scaler(feature_matrix, targets, c_param=1):
+def train_model_and_scaler(feature_matrix, targets, oversampling = False,
+                           regression = True, c_param=1):
     s_mean, s_std = feature_matrix.mean(axis = 0), feature_matrix.std(axis=0)
-    model = svm.SVR(C=c_param, kernel='rbf')
+    if regression:
+        model = svm.SVR(C=c_param, kernel='rbf')
+    else:
+        model = svm.SVC(C=c_param, kernel='rbf')
     feature_matrix_norm = normalize_ms(feature_matrix, s_mean, s_std)
-    sm = SMOTE()
-    feature_matrix_norm, targets = \
-        sm.fit_sample(feature_matrix_norm, targets)
+    if oversampling:
+        sm = SMOTE(random_state = 0)
+        feature_matrix_norm, targets = sm.fit_sample(feature_matrix_norm,
+                                                     targets)
     model.fit(feature_matrix_norm, targets)
     return model, s_mean, s_std
 
@@ -224,6 +232,8 @@ def parseArguments():
     parser.add_argument('-m', '--method', nargs=None, required=True,
                         choices=['audio', 'geospatial', 'random', 'fusion'],
                         help="Feature extraction method used")
+    parser.add_argument('--regression', action='store_true')
+    parser.add_argument('--upsample', action='store_true')
     parser.add_argument('-c', '--classes_used', nargs=None, required=False,
                         default="all",
                         choices=['all', '3_only_extremes', '3'],
@@ -239,6 +249,9 @@ if __name__ == '__main__':
     data_dir = args.input_folder
     gt_path = args.ground_truth
     classes_used = args.classes_used
+    regression = args.regression
+    upsample = args.upsample
+
     gt = read_ground_truth(gt_path, classes_used)
     if args.method == "audio":
         f = read_audio_features(data_dir)
@@ -256,5 +269,5 @@ if __name__ == '__main__':
         for F in f1:
             if F in f2:
                 f[F] = np.concatenate([f1[F], f2[F]])
-    evaluate(gt, f)
+    evaluate(gt, f, upsample, regression)
 
