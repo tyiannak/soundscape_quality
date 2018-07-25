@@ -16,6 +16,11 @@ wget http://users.iit.demokritos.gr/~tyianak/soundscape_quality_dataset/spectrog
 unzip spectrograms.zip -d .
 ```
 
+## Installation of dependencies
+```
+pip install -r requirements.txt
+```
+
 ## Run regression test on audio feature statistics (examples)
 ```
 python test_features.py -i features -g soundscape.csv -m audio -c all
